@@ -1,9 +1,16 @@
 {
   "name": "backend",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "generate": "bunx drizzle-kit generate",
+    "migrate": "bunx drizzle-kit migrate",
+    "push": "bunx drizzle-kit push"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.3",
+    "dotenv": "^16.5.0",
+    "drizzle-kit": "^0.30.6",
+    "drizzle-orm": "^0.41.0",
     "hono": "^4.7.6"
   },
   "devDependencies": {
