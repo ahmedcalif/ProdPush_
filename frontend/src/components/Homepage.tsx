@@ -1,7 +1,7 @@
-import { Button } from "../src/components/ui/button";
-import { ProdPushLogo } from "../src/components/prodpush-logo";
+import { Button } from "../components/ui/button";
+import { ProdPushLogo } from "../components/prodpush-logo";
 
-export default function Home() {
+export function Home() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b w-full">
