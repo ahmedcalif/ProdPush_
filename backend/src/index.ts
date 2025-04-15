@@ -1,9 +1,33 @@
-import { Hono } from 'hono'
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import projectRoute from "./routes/projects";
+import { serveStatic } from "hono/bun";
 
-const app = new Hono()
+const app = new Hono();
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
+app.use(logger());
 
-export default app
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE"],
+    allowHeaders: ["Content-Type", "Authorization"],
+  })
+);
+const apiRoutes = app.basePath(`/api/`).route("/projects", projectRoute);
+
+const port = process.env.PORT ? process.env.PORT : 3000;
+console.log(`Server is running on http://localhost:${port}`);
+
+export type ApiRoutes = typeof apiRoutes;
+
+// Static Routes
+app.get("*", serveStatic({ root: "../frontend/dist" }));
+app.notFound((c) => c.html(Bun.file("../frontend/dist/index.html").text()));
+
+export default {
+  port,
+  fetch: app.fetch,
+};
