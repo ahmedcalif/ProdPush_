@@ -51,15 +51,9 @@ export default function Dashboard() {
       <NavigationBar />
 
       <main className="flex-grow container mx-auto px-4 py-6">
-        <div className="bg-white p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">
-            Welcome, {user.username}
-          </h2>
-        </div>
-
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-6 text-gray-700 border-b pb-4">
-            Your Kanban Board
+            Welcome, {user.username}
           </h2>
 
           <div className="kanban-container overflow-x-auto">

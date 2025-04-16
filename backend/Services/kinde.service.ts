@@ -91,7 +91,7 @@ export const getUser = createMiddleware<Env>(async (c, next) => {
     }
 
     c.set("user", kindeUser);
-    console.log(userQueryResult, "user queyr len");
+    console.log(userQueryResult, "User Query Length");
 
     if (userQueryResult.length === 0) {
       console.log(kindeUser.email);
@@ -117,10 +117,10 @@ export const getUser = createMiddleware<Env>(async (c, next) => {
         throw error;
       }
 
-      console.log("got here?");
+      console.log("Got Here?");
       c.set("dbUser", secondQueryResult[0]);
     } else {
-      console.log("setting from query");
+      console.log("Settings from Query");
       c.set("dbUser", userQueryResult[0]);
     }
 
