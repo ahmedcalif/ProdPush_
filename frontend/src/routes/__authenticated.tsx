@@ -17,17 +17,33 @@ export const Route = createFileRoute("/__authenticated")({
   component: AuthenticatedLayout,
 });
 
-function NavigationBar() {
+export function NavigationBar() {
   return (
     <div className="py-4 flex flex-row justify-center">
       <nav className="bg-foreground-white px-8 py-4 w-fit rounded-[20px]">
-        <ul className="flex flex-row">
+        <ul className="flex flex-row gap-16">
+          <li>
+            <Link
+              to="/"
+              className="[&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
+            >
+              Home
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/about"
+              className="[&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
+            >
+              Projects
+            </Link>
+          </li>
           <li>
             <Link
               to="/dashboard"
-              className="[&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
+              className="flex items-center justify-center [&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
             >
-              Dashboard
+              Settings
             </Link>
           </li>
         </ul>

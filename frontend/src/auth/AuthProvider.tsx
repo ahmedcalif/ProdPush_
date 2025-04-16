@@ -6,7 +6,6 @@ import {
   ReactNode,
 } from "react";
 import { client } from "../lib/api/client";
-import { redirect } from "@tanstack/react-router";
 
 // Define response types explicitly
 type AuthResponse = {
@@ -45,18 +44,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const clientResponse = await client.api.auth.me.$get();
 
-      const responseData = clientResponse as unknown as AuthResponse;
+      // Add a more robust type assertion and response handling
+      const responseData = clientResponse as any;
       console.log("Response Data", responseData);
 
-      if (responseData.authenticated === true && responseData.user) {
-        setUser(responseData.user);
-        setIsAuthenticated(true);
-        return true;
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-        return false;
+      // Check if response has the expected structure
+      if (
+        responseData &&
+        responseData.authenticated === true &&
+        responseData.user
+      ) {
+        // Ensure the user object has all required fields
+        if (responseData.user.id && responseData.user.email) {
+          const userData: User = {
+            id: responseData.user.id,
+            email: responseData.user.email,
+            username: responseData.user.username || null,
+          };
+
+          setUser(userData);
+          setIsAuthenticated(true);
+          return true;
+        }
       }
+
+      // If any condition fails, reset auth state
+      setUser(null);
+      setIsAuthenticated(false);
+      return false;
     } catch (error) {
       console.error("Auth check failed:", error);
       setUser(null);
@@ -68,12 +83,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Immediately invoke the checkAuthStatus function
     checkAuthStatus();
+
+    // Optional: Set up a refresh interval if needed
+    // const refreshInterval = setInterval(checkAuthStatus, 5 * 60 * 1000); // every 5 minutes
+    // return () => clearInterval(refreshInterval);
   }, []);
 
   const logout = async () => {
     try {
       await client.api.auth.logout.$get();
+      // Reset local auth state before redirecting
+      setUser(null);
+      setIsAuthenticated(false);
       location.href = "/";
     } catch (error) {
       console.error("Logout failed:", error);
