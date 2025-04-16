@@ -1,4 +1,4 @@
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../providers/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { userQueryOptions } from "../lib/api/client";
 import { KanbanBoard } from "./KanbanBoard/kanban-board";

@@ -4,6 +4,7 @@ export interface KanbanTask {
   title: string;
   description: string;
   priority: string;
+  projectId: string;
 }
 
 export interface KanbanColumn {

@@ -15,6 +15,7 @@ import { Route as AboutImport } from './routes/about'
 import { Route as authenticatedImport } from './routes/__authenticated'
 import { Route as IndexImport } from './routes/index'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedProjectsIndexImport } from './routes/_authenticated/projects/index'
 
 // Create/Update Routes
 
@@ -40,6 +41,14 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRoute,
 } as any)
+
+const AuthenticatedProjectsIndexRoute = AuthenticatedProjectsIndexImport.update(
+  {
+    id: '/_authenticated/projects/',
+    path: '/projects/',
+    getParentRoute: () => rootRoute,
+  } as any,
+)
 
 // Populate the FileRoutesByPath interface
 
@@ -73,6 +82,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardImport
       parentRoute: typeof rootRoute
     }
+    '/_authenticated/projects/': {
+      id: '/_authenticated/projects/'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof AuthenticatedProjectsIndexImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -83,6 +99,7 @@ export interface FileRoutesByFullPath {
   '': typeof authenticatedRoute
   '/about': typeof AboutRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/projects': typeof AuthenticatedProjectsIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -90,6 +107,7 @@ export interface FileRoutesByTo {
   '': typeof authenticatedRoute
   '/about': typeof AboutRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/projects': typeof AuthenticatedProjectsIndexRoute
 }
 
 export interface FileRoutesById {
@@ -98,19 +116,21 @@ export interface FileRoutesById {
   '/__authenticated': typeof authenticatedRoute
   '/about': typeof AboutRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/about' | '/dashboard'
+  fullPaths: '/' | '' | '/about' | '/dashboard' | '/projects'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/about' | '/dashboard'
+  to: '/' | '' | '/about' | '/dashboard' | '/projects'
   id:
     | '__root__'
     | '/'
     | '/__authenticated'
     | '/about'
     | '/_authenticated/dashboard'
+    | '/_authenticated/projects/'
   fileRoutesById: FileRoutesById
 }
 
@@ -119,6 +139,7 @@ export interface RootRouteChildren {
   authenticatedRoute: typeof authenticatedRoute
   AboutRoute: typeof AboutRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -126,6 +147,7 @@ const rootRouteChildren: RootRouteChildren = {
   authenticatedRoute: authenticatedRoute,
   AboutRoute: AboutRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -141,7 +163,8 @@ export const routeTree = rootRoute
         "/",
         "/__authenticated",
         "/about",
-        "/_authenticated/dashboard"
+        "/_authenticated/dashboard",
+        "/_authenticated/projects/"
       ]
     },
     "/": {
@@ -155,6 +178,9 @@ export const routeTree = rootRoute
     },
     "/_authenticated/dashboard": {
       "filePath": "_authenticated/dashboard.tsx"
+    },
+    "/_authenticated/projects/": {
+      "filePath": "_authenticated/projects/index.tsx"
     }
   }
 }

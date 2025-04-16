@@ -2,7 +2,8 @@ import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "./auth/AuthProvider";
+import { AuthProvider } from "./providers/AuthProvider";
+import { ProjectProvider } from "./providers/ProjectProvider";
 
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
@@ -41,7 +42,9 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <ProjectProvider>
+            <RouterProvider router={router} />
+          </ProjectProvider>
         </AuthProvider>
       </QueryClientProvider>
     </StrictMode>

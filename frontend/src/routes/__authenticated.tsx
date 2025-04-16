@@ -4,7 +4,7 @@ import {
   redirect,
   Link,
 } from "@tanstack/react-router";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../providers/AuthProvider";
 import { ReactNode, useEffect } from "react";
 
 export const Route = createFileRoute("/__authenticated")({
@@ -24,7 +24,7 @@ export function NavigationBar() {
         <ul className="flex flex-row gap-16">
           <li>
             <Link
-              to="/"
+              to="/dashboard"
               className="[&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
             >
               Home
@@ -32,7 +32,7 @@ export function NavigationBar() {
           </li>
           <li>
             <Link
-              to="/about"
+              to="/projects"
               className="[&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
             >
               Projects

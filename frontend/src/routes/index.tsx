@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Home } from "../components/Homepage";
 import Dashboard from "../components/Dashboard";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../providers/AuthProvider";
 import "../index.css";
 
 export const Route = createFileRoute("/")({
