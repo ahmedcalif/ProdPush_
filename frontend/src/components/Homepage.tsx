@@ -1,5 +1,6 @@
 import { Button } from "../components/ui/button";
 import { ProdPushLogo } from "../components/prodpush-logo";
+import { RegisterButton, LoginButton } from "./LoginButton";
 
 export function Home() {
   return (
@@ -11,9 +12,8 @@ export function Home() {
             <span className="text-xl font-bold">ProdPush</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button asChild>
-              <a href="/dashboard">Get Started</a>
-            </Button>
+            <RegisterButton>Get Started</RegisterButton>
+            <LoginButton>Login</LoginButton>
           </div>
         </div>
       </header>
@@ -32,9 +32,7 @@ export function Home() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Button size="lg" asChild>
-                    <a href="/dashboard">Get Started</a>
-                  </Button>
+                  <RegisterButton>Get Started</RegisterButton>
                   <Button size="lg" variant="outline" asChild>
                     <a href="#features">Learn More</a>
                   </Button>

@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import projectRoute from "./routes/projects";
 import { serveStatic } from "hono/bun";
+import { authRouter } from "./routes/auth";
 
 const app = new Hono();
 
@@ -16,7 +17,10 @@ app.use(
     allowHeaders: ["Content-Type", "Authorization"],
   })
 );
-const apiRoutes = app.basePath(`/api/`).route("/projects", projectRoute);
+const apiRoutes = app
+  .basePath(`/api/`)
+  .route("/projects", projectRoute)
+  .route("/auth", authRouter);
 
 const port = process.env.PORT ? process.env.PORT : 3000;
 console.log(`Server is running on http://localhost:${port}`);

@@ -7,15 +7,8 @@ import {
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
-  sub: text("sub").notNull(),
-  name: text("name").notNull(),
   email: text("email").notNull(),
-  picture: text("picture"),
-  given_name: text("given_name"),
-  family_name: text("family_name"),
-  updated_at: integer("updated_at").notNull(),
-  email_verified: integer("email_verified").notNull(),
-  preferred_username: text("preferred_username"),
+  username: text("username"),
 });
 
 export const projects = sqliteTable("projects", {

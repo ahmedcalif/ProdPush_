@@ -8,6 +8,13 @@
       "when": 1744694163583,
       "tag": "0000_smart_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1744738890145,
+      "tag": "0001_odd_rockslide",
+      "breakpoints": true
     }
   ]
 }
