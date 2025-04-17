@@ -5,9 +5,13 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { KanbanTask } from "../lib/types";
+import { client } from "../lib/api/client";
+import { useAuth } from "./AuthProvider";
 
 export interface Project {
   id: number;
@@ -26,109 +30,172 @@ interface ProjectContextType {
   deleteProject: (id: number) => void;
   tasks: KanbanTask[];
   setTasks: (tasks: KanbanTask[]) => void;
+  isLoading: boolean;
+  fetchProjects: () => Promise<void>;
+  fetchTasksForProject: (projectId: number) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
-// Sample projects data
-const initialProjects: Project[] = [
-  {
-    id: 1,
-    name: "Website Redesign",
-    description: "Redesign the company website with new branding",
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 2,
-    name: "Mobile App Development",
-    description: "Create a new mobile app for customer engagement",
-    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 3,
-    name: "Marketing Campaign",
-    description: "Q3 marketing campaign for product launch",
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
-// Sample tasks data
-const initialTasks: KanbanTask[] = [
-  {
-    id: "task-1",
-    columnId: "todo",
-    title: "Research competitors",
-    description:
-      "Look at similar products and identify strengths and weaknesses",
-    priority: "medium",
-    projectId: 1,
-  },
-  {
-    id: "task-2",
-    columnId: "todo",
-    title: "Brainstorm new features",
-    description: "Generate ideas for upcoming product releases",
-    priority: "high",
-    projectId: 2,
-  },
-  {
-    id: "task-3",
-    columnId: "in-progress",
-    title: "Design user interface",
-    description: "Create wireframes and mockups for the new dashboard",
-    priority: "high",
-    projectId: 3,
-  },
-  {
-    id: "task-4",
-    columnId: "in-progress",
-    title: "Implement authentication",
-    description: "Add login and registration functionality",
-    priority: "medium",
-    projectId: 2,
-  },
-  {
-    id: "task-5",
-    columnId: "done",
-    title: "Set up CI/CD pipeline",
-    description: "Configure automated testing and deployment",
-    priority: "low",
-    projectId: 1,
-  },
-];
-
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const { user, isAuthenticated } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [tasks, setTasks] = useState<KanbanTask[]>(initialTasks);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Refs to track ongoing operations
+  const isLoadingProjectsRef = useRef(false);
+  const isLoadingTasksRef = useRef(false);
+  const previousTaskCountRef = useRef<Record<number, number>>({});
+
+  // Memoize fetch functions to prevent recreating them on every render
+  const fetchProjects = useCallback(async () => {
+    // Prevent concurrent requests
+    if (isLoadingProjectsRef.current) {
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      setProjects([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      isLoadingProjectsRef.current = true;
+      setIsLoading(true);
+      const response = await client.api.projects.$get();
+
+      if (response.ok) {
+        const projectsData = await response.json();
+        setProjects(projectsData);
+      } else {
+        console.error("Failed to fetch projects:", response.status);
+        setProjects([]);
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+      isLoadingProjectsRef.current = false;
+    }
+  }, [isAuthenticated, user]);
+
+  const fetchTasksForProject = useCallback(
+    async (projectId: number) => {
+      // Prevent concurrent requests
+      if (isLoadingTasksRef.current) {
+        return;
+      }
+
+      if (!isAuthenticated || !user || !projectId) {
+        setTasks([]);
+        return;
+      }
+
+      try {
+        isLoadingTasksRef.current = true;
+        setIsLoading(true);
+        const response = await client.api.tasks.project[":projectId"].$get({
+          param: { projectId: projectId.toString() },
+        });
+
+        if (response.ok) {
+          const taskData = await response.json();
+
+          const mappedTasks: KanbanTask[] = taskData.map((task: any) => ({
+            id: task.id.toString(),
+            title: task.title,
+            description: task.description || "",
+            projectId: task.projectId,
+            columnId: task.status || "todo",
+            priority: task.priority || "medium",
+            assignedTo: task.assignedTo,
+            dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          }));
+
+          setTasks(mappedTasks);
+
+          // Update the task count directly instead of triggering another state update
+          setProjects((prevProjects) =>
+            prevProjects.map((project) =>
+              project.id === projectId
+                ? { ...project, taskCount: mappedTasks.length }
+                : project
+            )
+          );
+
+          // Update our reference for this project's task count
+          previousTaskCountRef.current[projectId] = mappedTasks.length;
+        } else {
+          console.error("Failed to fetch tasks:", response.status);
+          setTasks([]);
+        }
+      } catch (error) {
+        console.error(`Error fetching tasks for project ${projectId}:`, error);
+        setTasks([]);
+      } finally {
+        setIsLoading(false);
+        isLoadingTasksRef.current = false;
+      }
+    },
+    [isAuthenticated, user]
+  );
+
+  // Fetch projects once when authenticated
   useEffect(() => {
-    const projectsWithCounts = projects.map((project) => {
-      const taskCount = tasks.filter(
-        (task) => task.projectId === project.id
-      ).length;
-      return { ...project, taskCount };
-    });
+    if (isAuthenticated) {
+      fetchProjects();
+    }
+  }, [isAuthenticated, fetchProjects]);
 
-    setProjects(projectsWithCounts);
-  }, [tasks]);
+  // Fetch tasks when selected project changes
+  useEffect(() => {
+    if (selectedProject?.id) {
+      fetchTasksForProject(selectedProject.id);
+    } else {
+      setTasks([]);
+    }
+  }, [selectedProject, fetchTasksForProject]);
 
-  const addProject = (project: Project) => {
-    setProjects([...projects, project]);
-  };
+  // Remove the third useEffect that was causing loops
+  // We now handle task count updates directly in fetchTasksForProject
 
-  const updateProject = (updatedProject: Project) => {
-    setProjects(
-      projects.map((project) =>
+  const addProject = useCallback((project: Project) => {
+    setProjects((prevProjects) => [...prevProjects, project]);
+  }, []);
+
+  const updateProject = useCallback((updatedProject: Project) => {
+    setProjects((prevProjects) =>
+      prevProjects.map((project) =>
         project.id === updatedProject.id ? updatedProject : project
       )
     );
-  };
+  }, []);
 
-  const deleteProject = (id: number) => {
-    setProjects(projects.filter((project) => project.id !== id));
-    setTasks(tasks.filter((task) => task.projectId !== id));
-  };
+  const deleteProject = useCallback(
+    async (id: number) => {
+      try {
+        await client.api.projects[":id"].$delete({
+          param: { id: id.toString() },
+        });
+
+        setProjects((prevProjects) =>
+          prevProjects.filter((project) => project.id !== id)
+        );
+
+        if (selectedProject?.id === id) {
+          setSelectedProject(null);
+          setTasks([]);
+        }
+      } catch (error) {
+        console.error(`Error deleting project ${id}:`, error);
+      }
+    },
+    [selectedProject]
+  );
 
   return (
     <ProjectContext.Provider
@@ -141,6 +208,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         deleteProject,
         tasks,
         setTasks,
+        isLoading,
+        fetchProjects,
+        fetchTasksForProject,
       }}
     >
       {children}

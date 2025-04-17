@@ -1,10 +1,17 @@
 "use client";
 
 import type React from "react";
-
 import { useState, useEffect } from "react";
-import { CalendarDays, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  RefreshCw,
+  ArrowRight,
+} from "lucide-react";
 import { format } from "date-fns";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Button } from "../components/ui/button";
 import {
@@ -38,7 +45,6 @@ import { useAuth } from "../providers/AuthProvider";
 import { NavigationBar } from "../routes/__authenticated";
 import { client } from "../lib/api/client";
 
-// Define an interface for the error data
 interface ErrorData {
   success: boolean;
   error?: {
@@ -52,64 +58,57 @@ interface ErrorData {
 }
 
 export function ProjectsPage() {
+  const navigate = useNavigate(); // Initialize router for navigation
   const {
     user,
     isAuthenticated,
     isLoading: authLoading,
     checkAuthStatus,
   } = useAuth();
-  const { projects, addProject, deleteProject } = useProjects();
+  const {
+    projects,
+    addProject,
+    deleteProject,
+    setSelectedProject,
+    isLoading: projectsLoading,
+    fetchProjects,
+  } = useProjects();
   const [newProject, setNewProject] = useState({ name: "", description: "" });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
-  // On component mount, check auth and log debug info
+  // Check authentication and refresh projects list when component mounts
   useEffect(() => {
-    if (isDialogOpen) {
-      const updateDebugInfo = async () => {
-        // Only check auth if we're not already authenticated
-        if (!isAuthenticated) {
-          await checkAuthStatus();
-        }
-
-        // Update debug info
-        setDebugInfo({
-          isAuthenticated,
-          authLoading,
-          userId: user?.id,
-          hasUser: !!user,
-        });
-      };
-
-      updateDebugInfo();
+    if (isAuthenticated) {
+      fetchProjects();
     }
-  }, [isDialogOpen]); // Only dependency is dialog open state
+  }, [isAuthenticated, fetchProjects]);
+
+  // Check authentication when dialog opens
+  useEffect(() => {
+    if (isDialogOpen && !isAuthenticated) {
+      checkAuthStatus();
+    }
+  }, [isDialogOpen, isAuthenticated, checkAuthStatus]);
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    try {
-      // Force authentication check
-      await checkAuthStatus();
-
-      // Log debug info before project creation
-      console.log("Debug before project creation:", {
-        isAuthenticated,
-        user,
-        authLoading,
-      });
-
-      if (!isAuthenticated || !user?.id) {
-        console.error("Authentication issue:", { isAuthenticated, user });
-        setError("Authentication required. Please login again.");
+    // Verify authentication before proceeding
+    if (!isAuthenticated || !user?.id) {
+      const isAuth = await checkAuthStatus();
+      if (!isAuth || !user?.id) {
+        setError("Please login before creating a project.");
         setIsLoading(false);
         return;
       }
+    }
 
-      // Create a proper project object to send to the backend
+    try {
+      // Create project object to send to the backend
       const response = await client.api.projects.create.$post({
         json: {
           name: newProject.name,
@@ -118,22 +117,18 @@ export function ProjectsPage() {
         },
       });
 
-      console.log("Response status:", response.status);
-
       if (response.ok) {
         const createdProject = await response.json();
-        console.log("Created Project Response Data", createdProject);
-
         addProject(createdProject as unknown as Project);
-
         setNewProject({ name: "", description: "" });
         setIsDialogOpen(false);
-      } else {
-        // Cast the error response to our defined type
-        const errorData = (await response.json()) as ErrorData;
-        console.error("Error creating project:", errorData);
 
-        // Display error message to user
+        // Refresh projects list after adding a new one
+        fetchProjects();
+      } else {
+        // Handle error response
+        const errorData = (await response.json()) as ErrorData;
+
         if (errorData.error && errorData.error.issues) {
           // Handle Zod validation errors
           const issues = errorData.error.issues;
@@ -153,35 +148,31 @@ export function ProjectsPage() {
     }
   };
 
-  const handleDeleteProject = async (projectId: number) => {
+  const handleDeleteProject = async (
+    e: React.MouseEvent,
+    projectId: number
+  ) => {
+    // Stop event propagation to prevent navigation when deleting
+    e.stopPropagation();
+
     try {
       await client.api.projects[":id"].$delete({
         param: { id: projectId.toString() },
       });
 
       deleteProject(projectId);
+      // Refresh projects list after deletion
+      fetchProjects();
     } catch (error) {
       console.error("Failed to delete project:", error);
     }
   };
 
-  // Manual auth check function for debugging
-  const forceAuthCheck = async () => {
-    try {
-      const result = await checkAuthStatus();
-      console.log("Auth check result:", result);
-      console.log("User after auth check:", user);
-      console.log("isAuthenticated after auth check:", isAuthenticated);
-
-      setDebugInfo({
-        authCheckResult: result,
-        user,
-        isAuthenticated,
-        authLoading,
-      });
-    } catch (error) {
-      console.error("Force auth check failed:", error);
-    }
+  const handleProjectClick = (project: Project) => {
+    setSelectedProject(project);
+    navigate({
+      to: `/projects/${project.id}`,
+    });
   };
 
   return (
@@ -189,148 +180,165 @@ export function ProjectsPage() {
       <NavigationBar />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Your Projects</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <form onSubmit={handleCreateProject}>
-              <DialogHeader>
-                <DialogTitle>Create New Project</DialogTitle>
-                <DialogDescription>
-                  Add a new project to organize your tasks.
-                </DialogDescription>
-              </DialogHeader>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => fetchProjects()}
+            disabled={projectsLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${projectsLoading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
 
-              {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4">
-                  {error}
-                </div>
-              )}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <form onSubmit={handleCreateProject}>
+                <DialogHeader>
+                  <DialogTitle>Create New Project</DialogTitle>
+                  <DialogDescription>
+                    Add a new project to organize your tasks.
+                  </DialogDescription>
+                </DialogHeader>
 
-              {/* Debug information */}
-              {debugInfo && (
-                <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded mt-2 mb-2 text-xs">
-                  <strong>Debug Info:</strong>
-                  <br />
-                  Auth Status:{" "}
-                  {isAuthenticated ? "Authenticated" : "Not Authenticated"}
-                  <br />
-                  Auth Loading: {authLoading ? "Yes" : "No"}
-                  <br />
-                  User ID: {user?.id || "None"}
-                  <br />
-                  Button disabled:{" "}
-                  {isLoading || authLoading || !isAuthenticated ? "Yes" : "No"}
-                </div>
-              )}
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4">
+                    {error}
+                  </div>
+                )}
 
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Project Name</Label>
-                  <Input
-                    id="name"
-                    value={newProject.name}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, name: e.target.value })
-                    }
-                    required
-                  />
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Project Name</Label>
+                    <Input
+                      id="name"
+                      value={newProject.name}
+                      onChange={(e) =>
+                        setNewProject({ ...newProject, name: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newProject.description}
+                      onChange={(e) =>
+                        setNewProject({
+                          ...newProject,
+                          description: e.target.value,
+                        })
+                      }
+                      rows={3}
+                    />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newProject.description}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        description: e.target.value,
-                      })
-                    }
-                    rows={3}
-                  />
-                </div>
-
-                {/* Debug button to check auth */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={forceAuthCheck}
-                  className="mt-2"
-                >
-                  Check Auth Status
-                </Button>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="submit"
-                  disabled={isLoading || authLoading || !isAuthenticated}
-                >
-                  {isLoading ? "Creating..." : "Create Project"}
-                  {isLoading || authLoading || !isAuthenticated
-                    ? ` (Disabled: ${!isAuthenticated ? "Not authenticated" : authLoading ? "Auth loading" : "Creating"})`
-                    : ""}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button
+                    type="submit"
+                    disabled={isLoading || authLoading || !isAuthenticated}
+                  >
+                    {isLoading ? "Creating..." : "Create Project"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {projects.map((project) => (
-          <Card key={project.id} className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl">{project.name}</CardTitle>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Open menu</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      className="text-red-600"
-                      onClick={() => handleDeleteProject(Number(project.id))}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <CardDescription className="line-clamp-2">
-                {project.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="flex items-center text-sm text-muted-foreground">
-                <CalendarDays className="mr-1 h-4 w-4" />
-                {project.createdAt &&
-                  `Created ${format(new Date(project.createdAt), "MMM d, yyyy")}`}
-              </div>
-            </CardContent>
-            <CardFooter className="pt-0">
-              <div className="w-full grid grid-cols-2 gap-2">
-                <div className="flex items-center justify-center rounded-md bg-muted p-1 text-xs">
-                  <span className="font-medium">Tasks: </span>
-                  <span className="ml-1">{project.taskCount || 0}</span>
+      {projectsLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-600">
+            No projects found
+          </h3>
+          <p className="text-gray-500 mt-2">
+            Create your first project to get started.
+          </p>
+          <Button onClick={() => setIsDialogOpen(true)} className="mt-4">
+            Create Project
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((project) => (
+            <Card
+              key={project.id}
+              className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => handleProjectClick(project)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-xl">{project.name}</CardTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => e.stopPropagation()} // Prevent card click when clicking menu
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-red-600"
+                        onClick={(e) =>
+                          handleDeleteProject(e, Number(project.id))
+                        }
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <div className="flex items-center justify-center rounded-md bg-muted p-1 text-xs">
-                  <span className="font-medium">Status: </span>
-                  <span className="ml-1">Active</span>
+                <CardDescription className="line-clamp-2">
+                  {project.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <CalendarDays className="mr-1 h-4 w-4" />
+                  {project.createdAt &&
+                    `Created ${format(new Date(project.createdAt), "MMM d, yyyy")}`}
                 </div>
-              </div>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-3 pt-0">
+                <div className="w-full grid grid-cols-2 gap-2">
+                  <div className="flex items-center justify-center rounded-md bg-muted p-1 text-xs">
+                    <span className="font-medium">Tasks: </span>
+                    <span className="ml-1">{project.taskCount || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-center rounded-md bg-muted p-1 text-xs">
+                    <span className="font-medium">Status: </span>
+                    <span className="ml-1">Active</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center text-sm text-blue-600 w-full">
+                  <span>View Tasks</span>
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </div>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

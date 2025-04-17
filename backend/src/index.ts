@@ -4,6 +4,7 @@ import { logger } from "hono/logger";
 import projectRoute from "./routes/projects";
 import { serveStatic } from "hono/bun";
 import { authRouter } from "./routes/auth";
+import { taskRouter } from "./routes/tasks";
 
 const app = new Hono();
 
@@ -20,6 +21,7 @@ app.use(
 const apiRoutes = app
   .basePath(`/api/`)
   .route("/projects", projectRoute)
+  .route("/tasks", taskRouter)
   .route("/auth", authRouter);
 
 const port = process.env.PORT ? process.env.PORT : 3000;

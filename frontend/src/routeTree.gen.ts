@@ -16,6 +16,7 @@ import { Route as authenticatedImport } from './routes/__authenticated'
 import { Route as IndexImport } from './routes/index'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedProjectsIndexImport } from './routes/_authenticated/projects/index'
+import { Route as AuthenticatedProjectsIdImport } from './routes/_authenticated/projects/$id'
 
 // Create/Update Routes
 
@@ -50,6 +51,12 @@ const AuthenticatedProjectsIndexRoute = AuthenticatedProjectsIndexImport.update(
   } as any,
 )
 
+const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdImport.update({
+  id: '/_authenticated/projects/$id',
+  path: '/projects/$id',
+  getParentRoute: () => rootRoute,
+} as any)
+
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
@@ -82,6 +89,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardImport
       parentRoute: typeof rootRoute
     }
+    '/_authenticated/projects/$id': {
+      id: '/_authenticated/projects/$id'
+      path: '/projects/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof AuthenticatedProjectsIdImport
+      parentRoute: typeof rootRoute
+    }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
       path: '/projects'
@@ -99,6 +113,7 @@ export interface FileRoutesByFullPath {
   '': typeof authenticatedRoute
   '/about': typeof AboutRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
 }
 
@@ -107,6 +122,7 @@ export interface FileRoutesByTo {
   '': typeof authenticatedRoute
   '/about': typeof AboutRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
 }
 
@@ -116,20 +132,22 @@ export interface FileRoutesById {
   '/__authenticated': typeof authenticatedRoute
   '/about': typeof AboutRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/about' | '/dashboard' | '/projects'
+  fullPaths: '/' | '' | '/about' | '/dashboard' | '/projects/$id' | '/projects'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/about' | '/dashboard' | '/projects'
+  to: '/' | '' | '/about' | '/dashboard' | '/projects/$id' | '/projects'
   id:
     | '__root__'
     | '/'
     | '/__authenticated'
     | '/about'
     | '/_authenticated/dashboard'
+    | '/_authenticated/projects/$id'
     | '/_authenticated/projects/'
   fileRoutesById: FileRoutesById
 }
@@ -139,6 +157,7 @@ export interface RootRouteChildren {
   authenticatedRoute: typeof authenticatedRoute
   AboutRoute: typeof AboutRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
@@ -147,6 +166,7 @@ const rootRouteChildren: RootRouteChildren = {
   authenticatedRoute: authenticatedRoute,
   AboutRoute: AboutRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
@@ -164,6 +184,7 @@ export const routeTree = rootRoute
         "/__authenticated",
         "/about",
         "/_authenticated/dashboard",
+        "/_authenticated/projects/$id",
         "/_authenticated/projects/"
       ]
     },
@@ -178,6 +199,9 @@ export const routeTree = rootRoute
     },
     "/_authenticated/dashboard": {
       "filePath": "_authenticated/dashboard.tsx"
+    },
+    "/_authenticated/projects/$id": {
+      "filePath": "_authenticated/projects/$id.tsx"
     },
     "/_authenticated/projects/": {
       "filePath": "_authenticated/projects/index.tsx"
