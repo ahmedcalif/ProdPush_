@@ -18,18 +18,16 @@ export const projectIdValidator = zValidator(
 );
 export const updateTaskValidator = zValidator("json", updateTaskSchema);
 
-export type KanbanTask = {
+export interface KanbanTask {
   id: string;
   title: string;
-  description?: string;
+  description: string;
   projectId: number;
-  columnId: string; // This corresponds to status in the database
+  columnId: string;
   priority: string;
-  assignedTo?: string;
-  dueDate?: Date | null;
-};
-
-// Helper function to convert DB task to Kanban task
+  assignedTo?: string | undefined; // Make sure assignedTo is included in the type
+  dueDate: Date | null;
+}
 export const toKanbanTask = (dbTask: any): KanbanTask => {
   return {
     id: dbTask.id.toString(),
