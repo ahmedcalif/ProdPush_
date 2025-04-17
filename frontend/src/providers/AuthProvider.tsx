@@ -8,17 +8,20 @@ import {
 import { client } from "../lib/api/client";
 
 // Define response types explicitly
-type AuthResponse = {
-  user?: {
-    id: string;
-    email: string;
-    username: string | null;
-  };
-  authenticated: boolean;
-  message?: string;
-};
+type AuthResponse =
+  | {
+      user: {
+        id: string;
+        email: string;
+        username: string | null;
+      };
+      authenticated: true;
+    }
+  | {
+      message: string;
+      authenticated: false;
+    };
 
-// User type
 type User = {
   id: string;
   email: string;
@@ -43,32 +46,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuthStatus = async () => {
     try {
       const clientResponse = await client.api.auth.me.$get();
-
-      // Add a more robust type assertion and response handling
-      const responseData = clientResponse as any;
+      const responseData = (await clientResponse.json()) as AuthResponse;
       console.log("Response Data", responseData);
 
-      // Check if response has the expected structure
-      if (
-        responseData &&
-        responseData.authenticated === true &&
-        responseData.user
-      ) {
-        // Ensure the user object has all required fields
-        if (responseData.user.id && responseData.user.email) {
+      if (responseData.authenticated === true) {
+        if (
+          responseData.user &&
+          responseData.user.id &&
+          responseData.user.email
+        ) {
           const userData: User = {
             id: responseData.user.id,
             email: responseData.user.email,
             username: responseData.user.username || null,
           };
-
           setUser(userData);
           setIsAuthenticated(true);
           return true;
         }
       }
 
-      // If any condition fails, reset auth state
       setUser(null);
       setIsAuthenticated(false);
       return false;
@@ -81,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
     // Immediately invoke the checkAuthStatus function
     checkAuthStatus();

@@ -40,11 +40,15 @@ const projectRoute = new Hono()
   .post("/create", createProjectValidator, async (c) => {
     try {
       const data = c.req.valid("json");
+
       const newProject = await db.insert(projects).values(data).returning();
-      return c.json(newProject[0], 201);
+
+      if (!newProject) {
+        throw new Error("db error creating a project");
+      }
+      return c.json(newProject[0]);
     } catch (error) {
       console.error("Error creating project", error);
-      return c.json({ error: "Failed to create project" }, 500);
     }
   })
   .put("/:id", projectIdValidator, updateProjectValidator, async (c) => {
@@ -75,7 +79,7 @@ const projectRoute = new Hono()
   })
   .delete("/:id", projectIdValidator, async (c) => {
     try {
-      const { id } = c.req.valid("param");
+      const id = Number(c.req.valid("param"));
 
       const existingProject = await db
         .select()

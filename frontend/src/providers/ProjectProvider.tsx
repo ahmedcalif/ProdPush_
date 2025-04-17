@@ -10,9 +10,9 @@ import {
 import type { KanbanTask } from "../lib/types";
 
 export interface Project {
-  id: string;
-  name: string;
-  description: string;
+  id: number;
+  name: string | null;
+  description: string | null;
   createdAt: string;
   taskCount?: number;
 }
@@ -23,7 +23,7 @@ interface ProjectContextType {
   setSelectedProject: (project: Project | null) => void;
   addProject: (project: Project) => void;
   updateProject: (project: Project) => void;
-  deleteProject: (id: string) => void;
+  deleteProject: (id: number) => void;
   tasks: KanbanTask[];
   setTasks: (tasks: KanbanTask[]) => void;
 }
@@ -33,19 +33,19 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 // Sample projects data
 const initialProjects: Project[] = [
   {
-    id: "project-1",
+    id: 1,
     name: "Website Redesign",
     description: "Redesign the company website with new branding",
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
-    id: "project-2",
+    id: 2,
     name: "Mobile App Development",
     description: "Create a new mobile app for customer engagement",
     createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
-    id: "project-3",
+    id: 3,
     name: "Marketing Campaign",
     description: "Q3 marketing campaign for product launch",
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
@@ -61,7 +61,7 @@ const initialTasks: KanbanTask[] = [
     description:
       "Look at similar products and identify strengths and weaknesses",
     priority: "medium",
-    projectId: "project-1",
+    projectId: 1,
   },
   {
     id: "task-2",
@@ -69,7 +69,7 @@ const initialTasks: KanbanTask[] = [
     title: "Brainstorm new features",
     description: "Generate ideas for upcoming product releases",
     priority: "high",
-    projectId: "project-1",
+    projectId: 2,
   },
   {
     id: "task-3",
@@ -77,7 +77,7 @@ const initialTasks: KanbanTask[] = [
     title: "Design user interface",
     description: "Create wireframes and mockups for the new dashboard",
     priority: "high",
-    projectId: "project-2",
+    projectId: 3,
   },
   {
     id: "task-4",
@@ -85,7 +85,7 @@ const initialTasks: KanbanTask[] = [
     title: "Implement authentication",
     description: "Add login and registration functionality",
     priority: "medium",
-    projectId: "project-2",
+    projectId: 2,
   },
   {
     id: "task-5",
@@ -93,7 +93,7 @@ const initialTasks: KanbanTask[] = [
     title: "Set up CI/CD pipeline",
     description: "Configure automated testing and deployment",
     priority: "low",
-    projectId: "project-3",
+    projectId: 1,
   },
 ];
 
@@ -125,9 +125,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = (id: number) => {
     setProjects(projects.filter((project) => project.id !== id));
-    // Also delete all tasks associated with this project
     setTasks(tasks.filter((task) => task.projectId !== id));
   };
 
