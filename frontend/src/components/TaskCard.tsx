@@ -1,12 +1,12 @@
 import { ArrowRight, Trash2, MoreHorizontal } from "lucide-react";
 import type { KanbanTask } from "../../../backend/src/zod/TasksZodTypes";
-import { Button } from "../components/ui/button";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+} from "./ui/dropdown-menu";
 
 interface TaskCardProps {
   task: KanbanTask;

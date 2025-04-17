@@ -1,4 +1,4 @@
-import { client } from "../../lib/api/client";
+import { client } from "./client";
 import type { KanbanTask } from "../../../../backend/src/zod/TasksZodTypes";
 import {
   toKanbanTask,

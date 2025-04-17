@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -15,21 +15,29 @@ import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 import { createPortal } from "react-dom";
 import { Plus } from "lucide-react";
 
-import { Button } from "../../components/ui/button";
+import { Button } from "../ui/button";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanItem } from "./kanban-item";
-import type { KanbanTask, KanbanColumn as ColumnType } from "../../lib/types";
-import { useId } from "react";
+import { AddTaskDialog } from "./task-dialog";
+import {
+  type KanbanTask,
+  type KanbanColumn as ColumnType,
+  type BackendTask,
+  normalizeTask,
+  prepareTaskForApi,
+} from "../../lib/types";
+import { useProjects } from "../../providers/ProjectProvider";
+import { client } from "../../lib/api/client";
 
-// Sample data
-const initialColumns: ColumnType[] = [
+// Define the columns configuration
+const columnConfig: ColumnType[] = [
   {
     id: "todo",
     title: "To Do",
     color: "bg-slate-200",
   },
   {
-    id: "in-progress",
+    id: "in_progress",
     title: "In Progress",
     color: "bg-blue-200",
   },
@@ -40,53 +48,28 @@ const initialColumns: ColumnType[] = [
   },
 ];
 
-const initialTasks: KanbanTask[] = [
-  {
-    id: "task-1",
-    columnId: "todo",
-    title: "Research competitors",
-    description:
-      "Look at similar products and identify strengths and weaknesses",
-    priority: "medium",
-  },
-  {
-    id: "task-2",
-    columnId: "todo",
-    title: "Brainstorm new features",
-    description: "Generate ideas for upcoming product releases",
-    priority: "high",
-  },
-  {
-    id: "task-3",
-    columnId: "in-progress",
-    title: "Design user interface",
-    description: "Create wireframes and mockups for the new dashboard",
-    priority: "high",
-  },
-  {
-    id: "task-4",
-    columnId: "in-progress",
-    title: "Implement authentication",
-    description: "Add login and registration functionality",
-    priority: "medium",
-  },
-  {
-    id: "task-5",
-    columnId: "done",
-    title: "Set up CI/CD pipeline",
-    description: "Configure automated testing and deployment",
-    priority: "low",
-  },
-];
+interface KanbanBoardProps {
+  projectId?: number;
+}
 
-export function KanbanBoard() {
-  const [columns, setColumns] = useState<ColumnType[]>(initialColumns);
-  const [tasks, setTasks] = useState<KanbanTask[]>(initialTasks);
+export function KanbanBoard({ projectId }: KanbanBoardProps) {
+  const { tasks, setTasks, selectedProject, fetchTasksForProject, isLoading } =
+    useProjects();
+
+  const [columns] = useState<ColumnType[]>(columnConfig);
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null);
   const [activeColumn, setActiveColumn] = useState<ColumnType | null>(null);
+  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
 
   const columnsId = columns.map((col) => col.id);
-  const idPrefix = useId();
+
+  // Fetch tasks when the component mounts or projectId changes
+  useEffect(() => {
+    if (projectId) {
+      fetchTasksForProject(projectId);
+    }
+  }, [projectId, fetchTasksForProject]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -96,27 +79,81 @@ export function KanbanBoard() {
     })
   );
 
-  function createTask() {
-    const newTask: KanbanTask = {
-      id: `task-${idPrefix}-${tasks.length + 1}`,
-      columnId: "todo",
-      title: "New Task",
-      description: "Click to edit this task",
-      priority: "medium",
-    };
+  async function createTask(taskData: {
+    title: string;
+    description?: string;
+    priority: string;
+    dueDate?: Date | null;
+  }) {
+    if (!selectedProject) return;
 
-    setTasks([...tasks, newTask]);
+    setIsSavingTask(true);
+
+    try {
+      const response = await client.api.tasks.create.$post({
+        json: {
+          title: taskData.title,
+          description: taskData.description || "",
+          priority: taskData.priority,
+          status: "todo",
+          projectId: selectedProject.id,
+        },
+      });
+
+      if (response.ok) {
+        const newTask = await response.json();
+
+        const mappedTask = normalizeTask(newTask as BackendTask);
+
+        setTasks([...tasks, mappedTask]);
+        setIsAddTaskDialogOpen(false);
+      } else {
+        console.error("Failed to create task:", await response.text());
+      }
+    } catch (error) {
+      console.error("Error creating task:", error);
+    } finally {
+      setIsSavingTask(false);
+    }
   }
 
-  function deleteTask(id: string) {
-    const newTasks = tasks.filter((task) => task.id !== id);
-    setTasks(newTasks);
+  async function deleteTask(id: string) {
+    try {
+      const response = await client.api.tasks[":id"].$delete({
+        param: { id },
+      });
+
+      if (response.ok) {
+        // Remove the task from the local state
+        setTasks(tasks.filter((task) => task.id !== id));
+      } else {
+        console.error("Failed to delete task:", await response.text());
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
   }
 
-  function updateTask(updatedTask: KanbanTask) {
-    setTasks(
-      tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
-    );
+  async function updateTask(updatedTask: KanbanTask) {
+    try {
+      const response = await client.api.tasks[":id"].$put({
+        param: { id: updatedTask.id },
+        json: {
+          id: updatedTask.id,
+          ...prepareTaskForApi(updatedTask),
+        },
+      });
+
+      if (response.ok) {
+        setTasks(
+          tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+        );
+      } else {
+        console.error("Failed to update task:", await response.text());
+      }
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -142,18 +179,6 @@ export function KanbanBoard() {
     const overId = over.id;
 
     if (activeId === overId) return;
-
-    // Handle column reordering
-    if (active.data.current?.type === "Column") {
-      setColumns((columns) => {
-        const activeColumnIndex = columns.findIndex(
-          (col) => col.id === activeId
-        );
-        const overColumnIndex = columns.findIndex((col) => col.id === overId);
-
-        return arrayMove(columns, activeColumnIndex, overColumnIndex);
-      });
-    }
   }
 
   function onDragOver(event: DragOverEvent) {
@@ -165,38 +190,79 @@ export function KanbanBoard() {
 
     if (activeId === overId) return;
 
-    // Handle task dropping
     if (
       active.data.current?.type === "Task" &&
       over.data.current?.type === "Task"
     ) {
-      setTasks((tasks) => {
-        const activeIndex = tasks.findIndex((t) => t.id === activeId);
-        const overIndex = tasks.findIndex((t) => t.id === overId);
+      const updatedTasks = [...tasks];
+      const activeIndex = updatedTasks.findIndex((t) => t.id === activeId);
+      const overIndex = updatedTasks.findIndex((t) => t.id === overId);
 
-        // If tasks are in different columns, update the column
-        if (tasks[activeIndex].columnId !== tasks[overIndex].columnId) {
-          tasks[activeIndex].columnId = tasks[overIndex].columnId;
-          return arrayMove(tasks, activeIndex, overIndex);
-        }
+      if (
+        updatedTasks[activeIndex].columnId !== updatedTasks[overIndex].columnId
+      ) {
+        const taskToUpdate = {
+          ...updatedTasks[activeIndex],
+          columnId: updatedTasks[overIndex].columnId,
+          status: updatedTasks[overIndex].columnId,
+        };
 
-        return arrayMove(tasks, activeIndex, overIndex);
-      });
+        const updatedTask = normalizeTask(taskToUpdate);
+
+        updatedTasks[activeIndex] = updatedTask;
+
+        updateTask(updatedTask);
+
+        setTasks(arrayMove(updatedTasks, activeIndex, overIndex));
+      } else {
+        setTasks(arrayMove(updatedTasks, activeIndex, overIndex));
+      }
     }
 
-    // Handle dropping a task into a column
     if (
       active.data.current?.type === "Task" &&
       over.data.current?.type === "Column"
     ) {
-      setTasks((tasks) => {
-        const activeIndex = tasks.findIndex((t) => t.id === activeId);
+      const updatedTasks = [...tasks];
+      const activeIndex = updatedTasks.findIndex((t) => t.id === activeId);
+      const columnId = overId.toString();
 
-        tasks[activeIndex].columnId = overId.toString();
+      const taskToUpdate = {
+        ...updatedTasks[activeIndex],
+        columnId: columnId,
+        status: columnId,
+      };
 
-        return [...tasks];
-      });
+      const updatedTask = normalizeTask(taskToUpdate);
+
+      updatedTasks[activeIndex] = updatedTask;
+
+      updateTask(updatedTask);
+
+      setTasks(updatedTasks);
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!selectedProject) {
+    return (
+      <div className="flex justify-center items-center h-full bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <p className="text-gray-400 mb-4">Select a project to view tasks</p>
+          <Button variant="outline" disabled>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -206,6 +272,17 @@ export function KanbanBoard() {
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
     >
+      <div className="mb-4 flex justify-between items-center">
+        <h3 className="text-lg font-medium">Task Board</h3>
+        <Button
+          onClick={() => setIsAddTaskDialogOpen(true)}
+          disabled={!selectedProject}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Task
+        </Button>
+      </div>
+
       <div className="flex gap-4 items-start overflow-x-auto pb-4">
         <SortableContext items={columnsId}>
           {columns.map((column) => (
@@ -218,15 +295,6 @@ export function KanbanBoard() {
             />
           ))}
         </SortableContext>
-
-        <Button
-          variant="outline"
-          className="flex items-center gap-1 h-12 shrink-0"
-          onClick={createTask}
-        >
-          <Plus className="h-4 w-4" />
-          Add Task
-        </Button>
       </div>
 
       {typeof document !== "undefined" &&
@@ -252,6 +320,14 @@ export function KanbanBoard() {
           </DragOverlay>,
           document.body
         )}
+
+      <AddTaskDialog
+        open={isAddTaskDialogOpen}
+        onOpenChange={setIsAddTaskDialogOpen}
+        onSubmit={createTask}
+        isLoading={isSavingTask}
+        task={null}
+      />
     </DndContext>
   );
 }

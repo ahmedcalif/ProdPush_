@@ -9,7 +9,8 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import type { KanbanTask } from "../lib/types";
+import type { KanbanTask, BackendTask } from "../lib/types";
+import { normalizeTask } from "../lib/types";
 import { client } from "../lib/api/client";
 import { useAuth } from "./AuthProvider";
 
@@ -29,7 +30,9 @@ interface ProjectContextType {
   updateProject: (project: Project) => void;
   deleteProject: (id: number) => void;
   tasks: KanbanTask[];
-  setTasks: (tasks: KanbanTask[]) => void;
+  setTasks: (
+    tasks: KanbanTask[] | ((prev: KanbanTask[]) => KanbanTask[])
+  ) => void;
   isLoading: boolean;
   fetchProjects: () => Promise<void>;
   fetchTasksForProject: (projectId: number) => Promise<void>;
@@ -44,60 +47,73 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Refs to track ongoing operations
+  // Use refs to prevent duplicate API calls
   const isLoadingProjectsRef = useRef(false);
   const isLoadingTasksRef = useRef(false);
-  const previousTaskCountRef = useRef<Record<number, number>>({});
+  const lastFetchedProjectId = useRef<number | null>(null);
 
-  // Memoize fetch functions to prevent recreating them on every render
+  // Memoize fetchProjects to prevent infinite loops
   const fetchProjects = useCallback(async () => {
-    // Prevent concurrent requests
-    if (isLoadingProjectsRef.current) {
-      return;
-    }
-
-    if (!isAuthenticated || !user) {
-      setProjects([]);
-      setIsLoading(false);
+    // Skip if already loading or not authenticated
+    if (isLoadingProjectsRef.current || !isAuthenticated || !user) {
       return;
     }
 
     try {
       isLoadingProjectsRef.current = true;
       setIsLoading(true);
+
       const response = await client.api.projects.$get();
 
       if (response.ok) {
         const projectsData = await response.json();
-        setProjects(projectsData);
+
+        // Only update state if data has changed
+        setProjects((current) => {
+          // Check if data is different before updating
+          if (JSON.stringify(current) !== JSON.stringify(projectsData)) {
+            return projectsData;
+          }
+          return current;
+        });
       } else {
         console.error("Failed to fetch projects:", response.status);
-        setProjects([]);
       }
     } catch (error) {
       console.error("Error fetching projects:", error);
-      setProjects([]);
     } finally {
-      setIsLoading(false);
       isLoadingProjectsRef.current = false;
+      setIsLoading(false);
     }
   }, [isAuthenticated, user]);
 
+  // Memoize fetchTasksForProject to prevent infinite loops
   const fetchTasksForProject = useCallback(
     async (projectId: number) => {
-      // Prevent concurrent requests
-      if (isLoadingTasksRef.current) {
-        return;
-      }
-
-      if (!isAuthenticated || !user || !projectId) {
-        setTasks([]);
+      // Skip if already loading this project's tasks, not authenticated, or no project ID
+      if (
+        isLoadingTasksRef.current ||
+        !isAuthenticated ||
+        !user ||
+        !projectId ||
+        lastFetchedProjectId.current === projectId
+      ) {
         return;
       }
 
       try {
         isLoadingTasksRef.current = true;
         setIsLoading(true);
+        lastFetchedProjectId.current = projectId;
+
+        // If we don't have the selected project in state yet, find it in projects array
+        if (!selectedProject || selectedProject.id !== projectId) {
+          const projectToSelect = projects.find((p) => p.id === projectId);
+          if (projectToSelect) {
+            setSelectedProject(projectToSelect);
+          }
+        }
+
         const response = await client.api.tasks.project[":projectId"].$get({
           param: { projectId: projectId.toString() },
         });
@@ -105,75 +121,71 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         if (response.ok) {
           const taskData = await response.json();
 
-          const mappedTasks: KanbanTask[] = taskData.map((task: any) => ({
-            id: task.id.toString(),
-            title: task.title,
-            description: task.description || "",
-            projectId: task.projectId,
-            columnId: task.status || "todo",
-            priority: task.priority || "medium",
-            assignedTo: task.assignedTo,
-            dueDate: task.dueDate ? new Date(task.dueDate) : null,
-          }));
-
-          setTasks(mappedTasks);
-
-          // Update the task count directly instead of triggering another state update
-          setProjects((prevProjects) =>
-            prevProjects.map((project) =>
-              project.id === projectId
-                ? { ...project, taskCount: mappedTasks.length }
-                : project
-            )
+          // Map and normalize tasks to ensure type compatibility
+          const normalizedTasks: KanbanTask[] = taskData.map(
+            (task: BackendTask) => normalizeTask(task)
           );
 
-          // Update our reference for this project's task count
-          previousTaskCountRef.current[projectId] = mappedTasks.length;
+          setTasks(normalizedTasks);
+
+          // Update project with task count only if needed
+          setProjects((currentProjects) => {
+            return currentProjects.map((project) => {
+              if (
+                project.id === projectId &&
+                project.taskCount !== normalizedTasks.length
+              ) {
+                return { ...project, taskCount: normalizedTasks.length };
+              }
+              return project;
+            });
+          });
         } else {
           console.error("Failed to fetch tasks:", response.status);
-          setTasks([]);
         }
       } catch (error) {
         console.error(`Error fetching tasks for project ${projectId}:`, error);
-        setTasks([]);
       } finally {
-        setIsLoading(false);
         isLoadingTasksRef.current = false;
+        setIsLoading(false);
       }
     },
-    [isAuthenticated, user]
+    [isAuthenticated, user, projects, selectedProject]
   );
 
-  // Fetch projects once when authenticated
+  // Initial load of projects when authentication changes
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isLoadingProjectsRef.current) {
       fetchProjects();
     }
   }, [isAuthenticated, fetchProjects]);
 
-  // Fetch tasks when selected project changes
+  // Reset lastFetchedProjectId when selectedProject changes
   useEffect(() => {
-    if (selectedProject?.id) {
-      fetchTasksForProject(selectedProject.id);
-    } else {
-      setTasks([]);
+    if (!selectedProject) {
+      lastFetchedProjectId.current = null;
     }
-  }, [selectedProject, fetchTasksForProject]);
-
-  // Remove the third useEffect that was causing loops
-  // We now handle task count updates directly in fetchTasksForProject
+  }, [selectedProject]);
 
   const addProject = useCallback((project: Project) => {
-    setProjects((prevProjects) => [...prevProjects, project]);
+    setProjects((current) => [...current, project]);
   }, []);
 
-  const updateProject = useCallback((updatedProject: Project) => {
-    setProjects((prevProjects) =>
-      prevProjects.map((project) =>
-        project.id === updatedProject.id ? updatedProject : project
-      )
-    );
-  }, []);
+  const updateProject = useCallback(
+    (updatedProject: Project) => {
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === updatedProject.id ? updatedProject : project
+        )
+      );
+
+      // Also update selectedProject if it's the one being updated
+      if (selectedProject?.id === updatedProject.id) {
+        setSelectedProject(updatedProject);
+      }
+    },
+    [selectedProject]
+  );
 
   const deleteProject = useCallback(
     async (id: number) => {
@@ -182,8 +194,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           param: { id: id.toString() },
         });
 
-        setProjects((prevProjects) =>
-          prevProjects.filter((project) => project.id !== id)
+        setProjects((current) =>
+          current.filter((project) => project.id !== id)
         );
 
         if (selectedProject?.id === id) {
@@ -197,6 +209,23 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [selectedProject]
   );
 
+  // Create a modified setTasks function that ensures type compatibility
+  const setTasksWithTypeCompatibility = useCallback(
+    (taskDataOrFn: KanbanTask[] | ((prev: KanbanTask[]) => KanbanTask[])) => {
+      if (typeof taskDataOrFn === "function") {
+        setTasks((prevTasks) => {
+          const updatedTasks = taskDataOrFn(prevTasks);
+          // Ensure all tasks are normalized
+          return updatedTasks.map((task) => normalizeTask(task));
+        });
+      } else {
+        // If it's an array, normalize each task
+        setTasks(taskDataOrFn.map((task) => normalizeTask(task)));
+      }
+    },
+    []
+  );
+
   return (
     <ProjectContext.Provider
       value={{
@@ -207,7 +236,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         updateProject,
         deleteProject,
         tasks,
-        setTasks,
+        setTasks: setTasksWithTypeCompatibility,
         isLoading,
         fetchProjects,
         fetchTasksForProject,

@@ -12,17 +12,17 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
+} from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import type { KanbanTask } from "../../lib/types";
-import { TaskDialog } from "./task-dialog";
+import { AddTaskDialog } from "./task-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu";
+} from "../ui/dropdown-menu";
 
 interface KanbanItemProps {
   task: KanbanTask;
@@ -119,11 +119,19 @@ export function KanbanItem({ task, deleteTask, updateTask }: KanbanItemProps) {
         </CardFooter>
       </Card>
 
-      <TaskDialog
+      <AddTaskDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         task={task}
-        updateTask={updateTask}
+        onSubmit={function (task: {
+          title: string;
+          description?: string;
+          priority: string;
+          dueDate?: Date | null;
+        }): void {
+          throw new Error("Function not implemented.");
+        }}
+        isLoading={false}
       />
     </>
   );

@@ -1,5 +1,5 @@
-import { Button } from "../components/ui/button";
-import { ProdPushLogo } from "../components/prodpush-logo";
+import { Button } from "./ui/button";
+import { ProdPushLogo } from "./prodpush-logo";
 import { RegisterButton, LoginButton } from "./LoginButton";
 
 export function Home() {

@@ -13,7 +13,7 @@ import {
 import { format } from "date-fns";
 import { useNavigate } from "@tanstack/react-router";
 
-import { Button } from "../components/ui/button";
+import { Button } from "./ui/button";
 import {
   Card,
   CardContent,
@@ -21,7 +21,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
+} from "./ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,16 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Textarea } from "../components/ui/textarea";
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+} from "./ui/dropdown-menu";
 import { useProjects, type Project } from "../providers/ProjectProvider";
 import { useAuth } from "../providers/AuthProvider";
 import { NavigationBar } from "../routes/__authenticated";

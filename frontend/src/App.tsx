@@ -1,5 +1,5 @@
-import { Button } from "../src/components/ui/button";
-import { ProdPushLogo } from "../src/components/prodpush-logo";
+import { Button } from "./components/ui/button";
+import { ProdPushLogo } from "./components/prodpush-logo";
 
 export default function Home() {
   return (
