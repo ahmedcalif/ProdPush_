@@ -40,7 +40,7 @@ export function NavigationBar() {
           </li>
           <li>
             <Link
-              to="/dashboard"
+              to="/settings"
               className="flex items-center justify-center [&.active]:text-foreground-nav-active text-foreground-nav-inactive text-lg"
             >
               Settings

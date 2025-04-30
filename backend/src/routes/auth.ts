@@ -6,6 +6,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { updateUserValidator } from "../zod/AuthZodTypes";
 import {
   getUser,
   kindeClient,
@@ -102,4 +103,85 @@ export const authRouter = new Hono()
       } as { user: InferSelectModel<typeof usersTable>; authenticated: true },
       200
     );
+  })
+  .post("/settings/update/:userId", getUser, updateUserValidator, async (c) => {
+    try {
+      const userId = c.req.param("userId");
+      const updateData = c.req.valid("json");
+
+      // Get authenticated user from context (set by your getUser middleware)
+      const kindeUser = c.get("user");
+      const dbUser = c.get("dbUser");
+
+      // Authorization check - users can only update their own profile
+      if (kindeUser.id !== userId) {
+        return c.json(
+          {
+            success: false,
+            message: "You can only update your own profile",
+          },
+          403
+        );
+      }
+
+      // Check if user exists in the database
+      if (!dbUser) {
+        return c.json(
+          {
+            success: false,
+            message: "User profile not found",
+          },
+          404
+        );
+      }
+
+      // Filter out undefined values - only update what was provided
+      const filteredUpdateData = Object.fromEntries(
+        Object.entries(updateData).filter(([_, value]) => value !== undefined)
+      );
+
+      // If no fields to update, return early
+      if (Object.keys(filteredUpdateData).length === 0) {
+        return c.json(
+          {
+            success: false,
+            message: "No valid fields to update",
+          },
+          400
+        );
+      }
+
+      // Update user in database
+      await db
+        .update(usersTable)
+        .set(filteredUpdateData)
+        .where(eq(usersTable.id, userId));
+
+      // Get updated user data
+      const updatedUserResult = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+
+      const updatedUser = updatedUserResult[0];
+
+      return c.json(
+        {
+          success: true,
+          message: "User updated successfully",
+          user: updatedUser,
+        },
+        200
+      );
+    } catch (error) {
+      console.error("Error updating user:", error);
+      return c.json(
+        {
+          success: false,
+          message: "Failed to update user",
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+        500
+      );
+    }
   });

@@ -15,8 +15,10 @@ import { Route as AboutImport } from './routes/about'
 import { Route as authenticatedImport } from './routes/__authenticated'
 import { Route as IndexImport } from './routes/index'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedSettingsIndexImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedProjectsIndexImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedProjectsIdImport } from './routes/_authenticated/projects/$id'
+import { Route as AuthenticatedSettingsUpdateUserIdImport } from './routes/_authenticated/settings/update/$userId'
 
 // Create/Update Routes
 
@@ -43,6 +45,14 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const AuthenticatedSettingsIndexRoute = AuthenticatedSettingsIndexImport.update(
+  {
+    id: '/_authenticated/settings/',
+    path: '/settings/',
+    getParentRoute: () => rootRoute,
+  } as any,
+)
+
 const AuthenticatedProjectsIndexRoute = AuthenticatedProjectsIndexImport.update(
   {
     id: '/_authenticated/projects/',
@@ -56,6 +66,13 @@ const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdImport.update({
   path: '/projects/$id',
   getParentRoute: () => rootRoute,
 } as any)
+
+const AuthenticatedSettingsUpdateUserIdRoute =
+  AuthenticatedSettingsUpdateUserIdImport.update({
+    id: '/_authenticated/settings/update/$userId',
+    path: '/settings/update/$userId',
+    getParentRoute: () => rootRoute,
+  } as any)
 
 // Populate the FileRoutesByPath interface
 
@@ -103,6 +120,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsIndexImport
       parentRoute: typeof rootRoute
     }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/_authenticated/settings/update/$userId': {
+      id: '/_authenticated/settings/update/$userId'
+      path: '/settings/update/$userId'
+      fullPath: '/settings/update/$userId'
+      preLoaderRoute: typeof AuthenticatedSettingsUpdateUserIdImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -115,6 +146,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/settings/update/$userId': typeof AuthenticatedSettingsUpdateUserIdRoute
 }
 
 export interface FileRoutesByTo {
@@ -124,6 +157,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/settings/update/$userId': typeof AuthenticatedSettingsUpdateUserIdRoute
 }
 
 export interface FileRoutesById {
@@ -134,13 +169,31 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/settings/update/$userId': typeof AuthenticatedSettingsUpdateUserIdRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/about' | '/dashboard' | '/projects/$id' | '/projects'
+  fullPaths:
+    | '/'
+    | ''
+    | '/about'
+    | '/dashboard'
+    | '/projects/$id'
+    | '/projects'
+    | '/settings'
+    | '/settings/update/$userId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/about' | '/dashboard' | '/projects/$id' | '/projects'
+  to:
+    | '/'
+    | ''
+    | '/about'
+    | '/dashboard'
+    | '/projects/$id'
+    | '/projects'
+    | '/settings'
+    | '/settings/update/$userId'
   id:
     | '__root__'
     | '/'
@@ -149,6 +202,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/projects/$id'
     | '/_authenticated/projects/'
+    | '/_authenticated/settings/'
+    | '/_authenticated/settings/update/$userId'
   fileRoutesById: FileRoutesById
 }
 
@@ -159,6 +214,8 @@ export interface RootRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+  AuthenticatedSettingsUpdateUserIdRoute: typeof AuthenticatedSettingsUpdateUserIdRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -168,6 +225,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+  AuthenticatedSettingsUpdateUserIdRoute:
+    AuthenticatedSettingsUpdateUserIdRoute,
 }
 
 export const routeTree = rootRoute
@@ -185,7 +245,9 @@ export const routeTree = rootRoute
         "/about",
         "/_authenticated/dashboard",
         "/_authenticated/projects/$id",
-        "/_authenticated/projects/"
+        "/_authenticated/projects/",
+        "/_authenticated/settings/",
+        "/_authenticated/settings/update/$userId"
       ]
     },
     "/": {
@@ -205,6 +267,12 @@ export const routeTree = rootRoute
     },
     "/_authenticated/projects/": {
       "filePath": "_authenticated/projects/index.tsx"
+    },
+    "/_authenticated/settings/": {
+      "filePath": "_authenticated/settings/index.tsx"
+    },
+    "/_authenticated/settings/update/$userId": {
+      "filePath": "_authenticated/settings/update/$userId.tsx"
     }
   }
 }
