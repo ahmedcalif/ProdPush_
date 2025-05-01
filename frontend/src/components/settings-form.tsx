@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +17,6 @@ import {
   FormMessage,
 } from "../components/ui/form";
 import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -28,43 +26,46 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { Loader2, LogOut } from "lucide-react";
-import { NavigationBar } from "../routes/__authenticated";
+import { client } from "../lib/api/client";
 
 const fetchUserProfile = async () => {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        name: "John Doe",
-        email: "john.doe@example.com",
-        bio: "Software developer passionate about building great user experiences.",
-      });
-    }, 500);
-  });
+  const res = await client.api.auth.me.$get();
+  if (res.ok) {
+    const data = await res.json();
+    return data.user;
+  }
+  throw new Error("Failed to fetch user profile");
 };
 
-// This would typically be a server action or API endpoint
-const updateUserProfile = async (data) => {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true, data });
-    }, 1000);
+const updateUserProfile = async (
+  userId: string,
+  userData: ProfileFormValues
+) => {
+  const res = await client.api.auth.settings.update[userId].$post({
+    json: userData,
   });
+
+  if (!res.ok) {
+    throw new Error("Failed to update profile");
+  }
+
+  const data = await res.json();
+  return data;
 };
 
-// This would typically be a server action or API endpoint
 const logoutUser = async () => {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 500);
-  });
+  const res = await client.api.auth.logout.$get();
+
+  if (!res.ok) {
+    throw new Error("Failed to logout");
+  }
+
+  const data = await res.json();
+  return data;
 };
 
 const profileFormSchema = z.object({
-  name: z
+  username: z
     .string()
     .min(2, {
       message: "Name must be at least 2 characters.",
@@ -75,12 +76,6 @@ const profileFormSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
-  bio: z
-    .string()
-    .max(160, {
-      message: "Bio must not be longer than 160 characters.",
-    })
-    .optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -98,15 +93,20 @@ export function SettingsForm() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: "",
+      username: "",
       email: "",
-      bio: "",
     },
-    values: userData as ProfileFormValues,
+    values: userData
+      ? {
+          username: userData.username || "",
+          email: userData.email || "",
+        }
+      : undefined,
   });
 
   const { mutate: updateProfile, isPending: isUpdating } = useMutation({
-    mutationFn: updateUserProfile,
+    mutationFn: (data: ProfileFormValues) =>
+      updateUserProfile(userData?.id, data),
     onSuccess: () => {
       toast.success("Profile updated", {
         description: "Your profile has been updated successfully.",
@@ -120,25 +120,23 @@ export function SettingsForm() {
     },
   });
 
-  // Handle form submission
   function onSubmit(data: ProfileFormValues) {
     updateProfile(data);
   }
 
-  // Handle logout
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logoutUser();
-      toast.success("Logged out", {
-        description: "You have been logged out successfully.",
-      });
-      router.push("/login");
+      const response = await logoutUser();
+      if (response.redirectUrl) {
+        window.location.href = response.redirectUrl;
+      } else {
+        router.navigate({ to: "/login" });
+      }
     } catch (error) {
       toast.error("Error", {
         description: "Failed to log out. Please try again.",
       });
-    } finally {
       setIsLoggingOut(false);
     }
   };
@@ -168,12 +166,12 @@ export function SettingsForm() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="name"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your name" {...field} />
+                      <Input placeholder={userData?.username} {...field} />
                     </FormControl>
                     <FormDescription>
                       This is your public display name.
@@ -190,31 +188,10 @@ export function SettingsForm() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
+                      <Input placeholder={userData?.email} {...field} />
                     </FormControl>
                     <FormDescription>
                       Your email address is used for notifications and sign-in.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bio</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Tell us a little bit about yourself"
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Brief description for your profile. Max 160 characters.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

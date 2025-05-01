@@ -150,7 +150,7 @@ export function ProjectsPage() {
 
   const handleDeleteProject = async (
     e: React.MouseEvent,
-    projectId: number
+    projectId: number,
   ) => {
     // Stop event propagation to prevent navigation when deleting
     e.stopPropagation();
